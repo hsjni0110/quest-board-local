@@ -1,0 +1,9 @@
+{
+  "id": "quest-board-local",
+  "name": "목표·할 일 대시보드",
+  "version": "2.5.0",
+  "minAppVersion": "1.7.0",
+  "description": "Management 폴더 기반 목표 및 할 일 관리. 탭, 일별 완료 그래프, 할 일 상세·마크다운 노트 편집.",
+  "author": "hsjni0110",
+  "isDesktopOnly": false
+}

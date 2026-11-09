@@ -1,0 +1,12 @@
+{
+  "name": "obsidian-quest-board",
+  "private": true,
+  "version": "2.5.0",
+  "description": "Obsidian local task and goal dashboard",
+  "scripts": {
+    "test": "node tests/smoke-test.cjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

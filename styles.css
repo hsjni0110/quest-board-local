@@ -1,0 +1,464 @@
+/* 목표와 할 일 2.4
+   - 독립 Obsidian 뷰에만 적용
+   - 상단: 작은 일별 완료 그래프
+   - 본문: 탭 전환 / 목표 목록 점진적 펼침
+*/
+.workspace-leaf-content[data-type="quest-board-view"],
+.workspace-leaf-content[data-type="quest-board-view"] .view-content {
+  background: #0e1522 !important;
+}
+.workspace-leaf-content[data-type="quest-board-view"] .view-content {
+  width: 100%; min-width: 0; padding: 0 !important;
+  overflow-x: hidden; overflow-y: auto;
+}
+.quest-board {
+  --qb-bg: #0e1522;
+  --qb-surface: #182336;
+  --qb-surface-2: #202e44;
+  --qb-border: #334159;
+  --qb-text: #edf2fc;
+  --qb-muted: #a7b4c9;
+  --qb-subtle: #8b9cb7;
+  --qb-accent: #aba4f4;
+  --qb-green: #88d3b7;
+  --qb-red: #ffadb8;
+  --qb-warn: #e8c991;
+  display: block;
+  width: 100%; min-height: 100%; min-width: 0;
+  color: var(--qb-text); background: var(--qb-bg);
+  font: 400 14px/1.55 -apple-system, BlinkMacSystemFont,
+        "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.quest-board *, .qb-modal * { box-sizing: border-box; }
+.quest-board .qb-shell {
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 36px clamp(24px, 3.5vw, 48px) 60px;
+}
+.quest-board button {
+  cursor: pointer; font-family: inherit;
+  transition: background-color .14s ease, border-color .14s ease, color .14s ease;
+}
+.quest-board button:disabled, .qb-modal button:disabled {
+  cursor: not-allowed; opacity: .5;
+}
+.quest-board button:focus-visible,
+.quest-board input:focus-visible,
+.qb-modal input:focus-visible,
+.qb-modal select:focus-visible,
+.qb-modal button:focus-visible {
+  outline: 2px solid var(--qb-accent, #aba4f4);
+  outline-offset: 3px;
+}
+
+/* 큰 제목 / 작은 보조 수치 */
+.quest-board .qb-header {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  flex-wrap: wrap; gap: 12px 24px;
+  margin-bottom: 23px;
+}
+.quest-board .qb-header-main { min-width: 0; }
+.quest-board .qb-title {
+  margin: 0; padding: 0; border: 0;
+  font-size: clamp(27px, 2.7vw, 34px); line-height: 1.2;
+  color: var(--qb-text); font-weight: 780; letter-spacing: -.045em;
+  text-wrap: balance;
+}
+.quest-board .qb-subtitle {
+  margin: 7px 0 0; font-size: 13px; line-height: 1.5;
+  color: var(--qb-muted); text-wrap: pretty;
+}
+.quest-board .qb-header-counts {
+  display: flex; align-items: baseline; gap: 10px;
+  padding-bottom: 3px; white-space: nowrap;
+}
+.quest-board .qb-counts-label { color: var(--qb-muted); font-size: 12px; }
+.quest-board .qb-counts-number {
+  color: var(--qb-text); font-size: 15px; font-weight: 740;
+  font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+}
+
+/* 버튼 / 부차적 필터 */
+.quest-board .qb-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px; min-height: 36px; padding: 7px 12px;
+  border: 1px solid var(--qb-border); border-radius: 8px;
+  color: var(--qb-text); background: var(--qb-surface);
+  font-size: 13px; font-weight: 650;
+  white-space: nowrap; box-shadow: none;
+}
+.quest-board .qb-btn:hover { background: var(--qb-surface-2); border-color: #71749d; }
+.quest-board .qb-btn.qb-primary {
+  color: #141927; background: var(--qb-accent); border-color: var(--qb-accent);
+}
+.quest-board .qb-btn.qb-primary:hover { background: #c4beff; }
+.quest-board .qb-btn.qb-outline { background: transparent; }
+.quest-board .qb-btn.qb-secondary {
+  background: rgba(171,164,244,.1); border-color: rgba(171,164,244,.3);
+  color: #d5d0ff;
+}
+.quest-board .qb-btn.qb-quiet {
+  min-width: 40px; color: var(--qb-muted);
+  background: transparent; border-color: transparent;
+}
+.quest-board .qb-btn.qb-quiet:hover { background: var(--qb-surface-2); color: var(--qb-text); }
+.quest-board .qb-btn.qb-text-danger, .quest-board .qb-text-danger { color: var(--qb-red) !important; }
+.quest-board .qb-tabs {
+  display: flex; align-items: center; gap: 3px;
+  border: 1px solid rgba(126,145,172,.18);
+  border-radius: 9px; padding: 3px;
+  background: #111c2d;
+}
+.quest-board .qb-tab {
+  min-height: 32px; padding: 5px 11px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--qb-muted);
+  font-size: 12.5px; font-weight: 620;
+}
+.quest-board .qb-tab:hover { color: var(--qb-text); background: var(--qb-surface-2); }
+.quest-board .qb-tab.active { color: #fff; background: #33445f; }
+
+/* 상단의 얇은 완료 기록 그래프: 핵심 차트만 노출 */
+.quest-board .qb-chart {
+  background: var(--qb-surface);
+  border: 1px solid var(--qb-border);
+  border-radius: 13px;
+  padding: 17px 20px 12px;
+  margin-bottom: 26px;
+}
+.quest-board .qb-chart-header {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 10px 16px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.quest-board .qb-chart-title-group {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 13px;
+}
+.quest-board .qb-chart-title {
+  margin: 0; padding: 0; border: 0;
+  color: var(--qb-text); font-size: 15px; font-weight: 750;
+}
+.quest-board .qb-chart-subtitle { color: var(--qb-muted); font-size: 12px; }
+.quest-board .qb-chart-ranges { display: flex; align-items: center; }
+.quest-board .qb-chart-tabs { border-color: transparent; background: transparent; padding: 0; }
+.quest-board .qb-chart-tabs .qb-tab {
+  padding: 4px 9px; min-height: 29px; font-size: 12px;
+}
+.quest-board .qb-chart-scroll { width: 100%; overflow-x: auto; scrollbar-width: thin; }
+.quest-board .qb-plot {
+  display: grid;
+  grid-template-columns: repeat(var(--qb-days), minmax(7px, 1fr));
+  gap: 4px; min-width: max(100%, calc(var(--qb-days) * 12px));
+  height: 122px;
+  border-bottom: 1px solid var(--qb-border);
+  background: repeating-linear-gradient(
+    to top, transparent 0, transparent 29px, rgba(117,138,168,.11) 30px
+  );
+}
+.quest-board .qb-column {
+  display: flex; flex-direction: column; justify-content: flex-end;
+  min-width: 0; height: 100%; padding: 0;
+  border: 0; background: transparent; color: var(--qb-muted);
+}
+.quest-board .qb-bar-zone {
+  display: flex; align-items: flex-end; justify-content: center;
+  height: 98px;
+}
+.quest-board .qb-bar {
+  display: block; width: min(100%, 19px); min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  background: #39485e;
+  transition: height .13s ease, background .13s ease;
+}
+.quest-board .qb-bar[data-filled="true"] {
+  background: linear-gradient(180deg,#b0aaff,#789ccf);
+}
+.quest-board .qb-column:hover .qb-bar,
+.quest-board .qb-column.selected .qb-bar { background: var(--qb-green); }
+.quest-board .qb-chart-tick {
+  height: 24px; display: block; padding-top: 4px;
+  color: var(--qb-subtle); text-align: center;
+  font-size: 10px; white-space: nowrap;
+}
+.quest-board .qb-chart-detail {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 7px;
+  border-top: 1px solid var(--qb-border);
+  padding-top: 12px; margin-top: 12px;
+}
+.quest-board .qb-chart-detail-head {
+  color: var(--qb-text); font-size: 12px; margin-right: 8px;
+}
+.quest-board .qb-history-link {
+  max-width: 240px; min-height: 28px; padding: 4px 9px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border-radius: 7px; border: 1px solid var(--qb-border);
+  color: var(--qb-text); background: var(--qb-surface-2); font-size: 12px;
+}
+.quest-board .qb-history-link:hover { border-color: var(--qb-accent); }
+
+/* 메인 탭: 2개만 보여주고 선택된 영역만 렌더링 */
+.quest-board .qb-main-tabs {
+  display: flex; align-items: stretch; gap: 26px;
+  border-bottom: 1px solid var(--qb-border);
+  margin-bottom: 17px;
+}
+.quest-board .qb-main-tab {
+  min-height: 49px; padding: 10px 2px 12px;
+  border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  color: var(--qb-muted); background: transparent;
+  font-size: 17px; font-weight: 690; white-space: nowrap;
+}
+.quest-board .qb-main-tab:hover { color: var(--qb-text); }
+.quest-board .qb-main-tab.active {
+  border-bottom-color: var(--qb-accent); color: var(--qb-text);
+}
+.quest-board .qb-main-panel { min-width: 0; }
+.quest-board .qb-content-toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 10px;
+  margin: 0 0 12px;
+}
+.quest-board .qb-create-group { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+
+/* 목표: 목록형 1열 / 기본 한 줄 요약 / 펼치면 작업 표시 */
+.quest-board .qb-goal-list {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--qb-border);
+  background: var(--qb-surface);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.quest-board .qb-goal-row + .qb-goal-row { border-top: 1px solid var(--qb-border); }
+.quest-board .qb-goal-row:hover { background: rgba(149,164,201,.035); }
+.quest-board .qb-goal-summary {
+  width: 100%; min-width: 0;
+  padding: 13px 17px; min-height: 68px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 15px; text-align: left;
+  border: 0; border-radius: 0; background: transparent;
+  color: var(--qb-text); box-shadow: none;
+}
+.quest-board .qb-goal-description { flex: 1; min-width: 0; }
+.quest-board .qb-goal-title {
+  display: block; font-size: 15px; line-height: 1.35;
+  font-weight: 700; color: var(--qb-text);
+  overflow-wrap: anywhere;
+}
+.quest-board .qb-goal-meta {
+  display: flex; flex-wrap: wrap; gap: 4px 12px;
+  margin-top: 4px; color: var(--qb-muted);
+  font-size: 11.5px;
+}
+.quest-board .qb-goal-summary-right {
+  display: flex; flex: none; justify-content: flex-end;
+  align-items: center; gap: 11px;
+}
+.quest-board .qb-status {
+  padding: 4px 8px; border-radius: 6px;
+  font-size: 11.5px; font-weight: 650;
+}
+.quest-board .qb-status.pending { background: #3e3629; color: var(--qb-warn); }
+.quest-board .qb-status.cleared { background: #234139; color: var(--qb-green); }
+.quest-board .qb-goal-task-count { color: var(--qb-muted); font-size: 12px; white-space: nowrap; }
+.quest-board .qb-chevron {
+  width: 9px; height: 9px; flex: none;
+  border-right: 1.5px solid var(--qb-muted);
+  border-bottom: 1.5px solid var(--qb-muted);
+  transform: rotate(45deg); transition: transform .14s ease;
+  margin: -5px 3px 0 2px;
+}
+.quest-board .qb-goal-row.expanded .qb-chevron { transform: rotate(225deg); margin-top: 5px; }
+.quest-board .qb-goal-details {
+  padding: 12px 17px 16px;
+  border-top: 1px solid var(--qb-border);
+  background: rgba(12, 20, 33, .28);
+}
+.quest-board .qb-detail-header {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px;
+  margin-bottom: 10px;
+}
+.quest-board .qb-detail-title { font-size: 12.5px; color: var(--qb-muted); font-weight: 650; }
+.quest-board .qb-detail-actions { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
+.quest-board .qb-detail-actions .qb-btn { min-height: 32px; padding: 5px 10px; font-size: 12px; }
+.quest-board .qb-goal-task-list { min-width: 0; }
+.quest-board .qb-empty-inline { color: var(--qb-muted); font-size: 12.5px; padding: 4px 0 9px; margin: 0; }
+.quest-board .qb-more { margin-top: 9px; font-size: 12px; }
+
+/* 업무 목록 / 검색 / 행 */
+.quest-board .qb-task-list {
+  border: 1px solid var(--qb-border);
+  background: var(--qb-surface);
+  border-radius: 12px; padding: 12px 16px 14px;
+  min-width: 0;
+}
+.quest-board .qb-task-toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 12px;
+  padding: 0 0 12px;
+}
+.quest-board .qb-search {
+  width: 230px; max-width: 100%; min-height: 36px;
+  padding: 7px 12px; font: inherit; font-size: 12.5px;
+  color: var(--qb-text); background: #0e1a2a;
+  border: 1px solid var(--qb-border); border-radius: 8px;
+}
+.quest-board .qb-search::placeholder { color: var(--qb-subtle); }
+.quest-board .qb-list-summary { color: var(--qb-muted); font-size: 12px; padding: 6px 0; }
+.quest-board .qb-task-row {
+  display: flex; align-items: center;
+  gap: 12px; min-width: 0;
+  padding: 11px 0; border-bottom: 1px solid var(--qb-border);
+}
+.quest-board .qb-task-row:last-child { border-bottom: 0; }
+.quest-board .qb-subtask-row { padding: 10px 0; }
+.quest-board .qb-check {
+  width: 18px; height: 18px; flex: none;
+  margin: 0; cursor: pointer;
+  accent-color: var(--qb-accent);
+}
+.quest-board .qb-task-info { flex: 1; min-width: 0; }
+.quest-board .qb-task-name {
+  color: var(--qb-text); font-size: 14px;
+  font-weight: 580; line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.quest-board .qb-task-name.struck { text-decoration: line-through; color: var(--qb-muted); }
+.quest-board .qb-task-meta {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 3px 12px; margin-top: 3px;
+}
+.quest-board .qb-muted { color: var(--qb-muted); font-size: 11.5px; }
+.quest-board .qb-late { color: var(--qb-red); font-size: 11.5px; }
+.quest-board .qb-origin {
+  min-height: 24px; padding: 1px 2px;
+  max-width: 220px; overflow: hidden;
+  white-space: nowrap; text-overflow: ellipsis;
+  color: #c7c2ff; background: transparent; border: 0;
+  text-align: left; font-size: 11.5px;
+}
+.quest-board .qb-origin:hover { text-decoration: underline; }
+.quest-board .qb-row-controls { display: flex; gap: 4px; align-items: center; flex: none; }
+.quest-board .qb-mini-btn {
+  min-height: 32px; min-width: 36px; padding: 5px 8px;
+  border: 1px solid transparent; border-radius: 6px;
+  background: transparent; color: var(--qb-muted);
+  font-size: 12px; font-weight: 600;
+}
+.quest-board .qb-mini-btn:hover { color: var(--qb-text); background: var(--qb-surface-2); }
+
+/* 상태가 비어 있을 때도 카드가 지나치게 두껍지 않게 */
+.quest-board .qb-empty {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 6px;
+  min-height: 120px; padding: 20px 16px;
+  text-align: center;
+}
+.quest-board .qb-empty-title { color: var(--qb-text); font-size: 14px; font-weight: 710; }
+.quest-board .qb-empty-description { color: var(--qb-muted); margin: 0 0 6px; font-size: 12.5px; }
+.quest-board .qb-task-empty { min-height: 160px; }
+.quest-board .qb-footnote { margin: 24px 0 0; text-align: center; color: var(--qb-subtle); font-size: 11px; }
+
+/* 모달 — Obsidian 테마에 의한 콤보박스 높이 충돌 방지 */
+.qb-modal .qb-modal-title { font-size: 21px; font-weight: 730; line-height: 1.35; margin: 0 0 8px; }
+.qb-modal .qb-modal-hint { color: var(--text-muted); font-size: 13px; line-height: 1.5; margin: 0 0 17px; }
+.qb-modal .qb-form { display: flex; flex-direction: column; gap: 17px; }
+.qb-modal .qb-field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.qb-modal .qb-field-title { font-size: 13px; font-weight: 630; color: var(--text-normal); }
+.qb-modal .qb-input {
+  display: block; width: 100%;
+  height: 46px !important; min-height: 46px !important; max-height: none !important;
+  padding: 0 14px !important; margin: 0;
+  font-size: 14px !important; line-height: normal !important; font-weight: 500;
+  color: var(--text-normal); background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border); border-radius: 9px;
+}
+.qb-modal select.qb-input {
+  appearance: none !important; -webkit-appearance: none !important;
+  padding: 0 43px 0 14px !important; cursor: pointer;
+  text-overflow: ellipsis; background-repeat: no-repeat;
+  background-position: right 14px center; background-size: 16px 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23949DB1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+.qb-modal select.qb-input option {
+  color: var(--text-normal); background: var(--background-primary); font-size: 14px;
+}
+.qb-modal .qb-error { color: var(--text-error); font-size: 13px; margin: 0; }
+.qb-modal .qb-modal-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 9px; margin-top: 12px; }
+.qb-modal .qb-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 40px; padding: 9px 15px;
+  border: 1px solid var(--background-modifier-border); border-radius: 9px;
+  color: var(--text-normal); background: var(--background-secondary);
+  font-size: 13px; font-weight: 650; cursor: pointer;
+}
+.qb-modal .qb-btn.qb-primary { color: #141826; background: #b3a8ff; border-color: #b3a8ff; }
+.qb-modal .qb-btn.qb-danger { color: #fff; background: #a4445b; border-color: #a4445b; }
+.qb-modal .qb-btn:hover { filter: brightness(1.1); }
+
+@media (max-width: 800px) {
+  .quest-board .qb-shell { padding: 25px 22px 50px; }
+  .quest-board .qb-chart { padding: 15px 14px 11px; }
+  .quest-board .qb-header { align-items: flex-start; }
+}
+@media (max-width: 550px) {
+  .quest-board .qb-shell { padding: 20px 14px 44px; }
+  .quest-board .qb-header-counts { width: 100%; }
+  .quest-board .qb-main-tabs { gap: 20px; }
+  .quest-board .qb-main-tab { font-size: 15px; }
+  .quest-board .qb-goal-summary { align-items: flex-start; padding: 12px; gap: 9px; }
+  .quest-board .qb-goal-summary-right { gap: 7px; flex-wrap: wrap; }
+  .quest-board .qb-goal-task-count { display: none; }
+  .quest-board .qb-goal-details { padding: 12px; }
+  .quest-board .qb-detail-actions { justify-content: flex-start; }
+  .quest-board .qb-task-list { padding: 12px; }
+  .quest-board .qb-task-toolbar { align-items: stretch; }
+  .quest-board .qb-search { width: 100%; }
+  .quest-board .qb-task-row { align-items: flex-start; gap: 9px; }
+  .quest-board .qb-row-controls { gap: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quest-board *, .qb-modal * { transition-duration: 0s !important; }
+}
+
+/* 2.5: 행 전체에서 상세 열기 / 편집 노트 */
+.quest-board .qb-task-row { cursor: pointer; border-radius: 7px; padding-left: 8px; padding-right: 8px; }
+.quest-board .qb-task-row:hover, .quest-board .qb-task-row:focus-visible {
+  background: color-mix(in srgb, var(--qb-accent) 8%, transparent);
+  outline-offset: -2px;
+}
+.quest-board .qb-task-row .qb-task-info { pointer-events: none; }
+.quest-board .qb-task-row .qb-origin { pointer-events: auto; }
+.quest-board .qb-chart-empty { color: var(--qb-muted); font-size: 12px; margin: 0 0 10px; }
+
+/* 모달은 넓어도 중앙에 정돈하여 표시. 테마의 기본 textarea 스타일에 영향받지 않는다. */
+.modal:has(.qb-detail-modal) { width: min(780px, calc(100vw - 32px)); max-width: 780px; }
+.qb-detail-modal .qb-detail-fields { display: flex; flex-direction: column; gap: 14px; }
+.qb-detail-modal .qb-detail-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.qb-detail-modal .qb-note-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 18px 0 8px; }
+.qb-detail-modal .qb-note-heading strong { font-size: 15px; color: var(--text-normal); }
+.qb-detail-modal .qb-note-editor { min-height: 140px; max-height: min(45vh, 430px); overflow-y: auto; border: 1px solid var(--background-modifier-border); border-radius: 10px; background: var(--background-primary); }
+.qb-detail-modal .qb-note-guide { padding: 12px 15px 8px; color: var(--text-muted); font-size: 12px; margin: 0; }
+.qb-detail-modal .qb-note-blocks { padding: 8px 12px 16px; }
+.qb-detail-modal .qb-note-line-wrap { position: relative; min-height: 30px; }
+.qb-detail-modal .qb-note-line-wrap.editing { background: var(--background-secondary); border-radius: 6px; }
+.qb-detail-modal .qb-note-preview { padding: 5px 8px; min-height: 30px; cursor: text; line-height: 1.55; overflow-wrap: anywhere; }
+.qb-detail-modal .qb-note-preview > :first-child { margin-top: 0; }
+.qb-detail-modal .qb-note-preview > :last-child { margin-bottom: 0; }
+.qb-detail-modal .qb-note-preview .qb-placeholder { color: var(--text-faint); }
+.qb-detail-modal .qb-note-line, .qb-detail-modal .qb-note-raw {
+  display: block; box-sizing: border-box; width: 100%; resize: vertical;
+  background: var(--background-secondary); color: var(--text-normal);
+  border: 1px solid var(--interactive-accent); border-radius: 7px;
+  font-family: var(--font-text); font-size: 14px; line-height: 1.6;
+  padding: 6px 8px; outline: none;
+}
+.qb-detail-modal .qb-note-raw { min-height: 220px; resize: vertical; }
+.qb-detail-modal .qb-note-line { min-height: 36px; resize: none; }
+.qb-detail-modal .hidden { display: none !important; }
+.qb-detail-modal .qb-error:empty { display: none; }
+@media (max-width: 550px) {
+  .qb-detail-modal .qb-detail-dates { grid-template-columns: 1fr; }
+  .qb-detail-modal .qb-note-editor { max-height: 38vh; }
+}
