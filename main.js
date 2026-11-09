@@ -54,129 +54,78 @@ class EntryModal extends Modal {
 
 /** A task's note is a separate Markdown file. Existing task lines remain readable in any editor. */
 class TaskDetailModal extends Modal {
- constructor(app,plugin,task){super(app);this.plugin=plugin;this.task=task;this.blocks=[];this.rawMode=false;this.renderer=null;this.originalNote="";this.currentId=task.id||"";}
+ constructor(app,plugin,task){
+  super(app);this.plugin=plugin;this.task=task;this.renderer=null;this.previewMode=false;
+ }
  async onOpen(){
   const root=this.contentEl;root.empty();root.addClass("qb-modal","qb-detail-modal");
   this.renderer=new Component();this.renderer.load();
-   // The title itself is the primary editable heading; no duplicate page title or helper paragraph.
-   const heading=el(root,"div","qb-detail-heading");
-   this.titleInput=el(heading,"input","qb-detail-title-input");
-   this.titleInput.type="text";
-   this.titleInput.value=this.task.title;
-   this.titleInput.placeholder="할 일 제목";
-   this.titleInput.setAttribute("aria-label","할 일 제목");
-   const dates=el(root,"div","qb-detail-dates");
-   const dateInput=(caption,value)=>{const label=el(dates,"label","qb-field");el(label,"span","qb-field-title",caption);return dateControl(label,value,caption);};
-   this.startInput=dateInput("시작",this.task.scheduled);
-   this.endInput=dateInput("종료",this.task.due);
-   const noteHeading=el(root,"div","qb-note-heading");
-   el(noteHeading,"strong","","노트");
-   const sourceButton=btn(noteHeading,"마크다운 원문","qb-btn qb-quiet",()=>this.toggleRawMode(sourceButton));
-  this.editorRoot=el(root,"div","qb-note-editor");
+
+  const heading=el(root,"div","qb-detail-heading");
+  this.titleInput=el(heading,"input","qb-detail-title-input");
+  this.titleInput.type="text";this.titleInput.value=this.task.title;
+  this.titleInput.placeholder="할 일 제목";
+  this.titleInput.setAttribute("aria-label","할 일 제목");
+
+  const dates=el(root,"div","qb-detail-dates");
+  const dateInput=(caption,value)=>{
+   const label=el(dates,"label","qb-field");
+   el(label,"span","qb-field-title",caption);
+   return dateControl(label,value,caption);
+  };
+  this.startInput=dateInput("시작",this.task.scheduled);
+  this.endInput=dateInput("종료",this.task.due);
+
+  const noteHeading=el(root,"div","qb-note-heading");
+  el(noteHeading,"strong","","노트");
+  this.previewButton=btn(noteHeading,"미리보기","qb-btn qb-quiet",()=>this.togglePreview());
+  this.previewButton.setAttribute("aria-pressed","false");
+  const editor=el(root,"div","qb-note-editor");
+  this.rawEditor=el(editor,"textarea","qb-note-raw");
+  this.rawEditor.rows=16;
+  this.rawEditor.placeholder="마크다운으로 노트를 작성하세요.";
+  this.rawEditor.setAttribute("aria-label","마크다운 원문 편집");
+  this.previewEl=el(editor,"div","qb-note-live-preview markdown-rendered hidden");
+  this.previewEl.setAttribute("aria-label","마크다운 미리보기");
+
   this.errorEl=el(root,"p","qb-error");this.errorEl.setAttribute("role","alert");
   const actions=el(root,"div","qb-modal-actions");
   btn(actions,"취소","qb-btn qb-outline",()=>this.close());
   this.saveButton=btn(actions,"저장","qb-btn qb-primary",()=>this.saveAndClose());
   try{
-    const {id,content}=await this.plugin.loadTaskNote(this.task);
-    this.currentId=id;this.originalNote=content;
-    this.blocks=content.replace(/\r\n/g,"\n").split("\n");
-    if(!this.blocks.length)this.blocks=[""];
-    this.showBlocks();
-  } catch(error){this.errorEl.textContent=error.message||String(error);}
+   const {content}=await this.plugin.loadTaskNote(this.task);
+   // Always start in the Markdown source editor, including when reopening a note.
+   this.rawEditor.value=content.replace(/\r\n/g,"\n");
+  }catch(error){this.errorEl.textContent=error.message||String(error);}
  }
- sourceText(){return this.rawMode?this.rawEditor.value.replace(/\r\n/g,"\n"):this.blocks.join("\n");}
- toggleRawMode(button){
-  const text=this.sourceText();this.rawMode=!this.rawMode;
-  this.blocks=text.split("\n");
-  button.textContent=this.rawMode?"블록 편집":"마크다운 원문";
-  if(this.rawMode)this.showRaw();else this.showBlocks();
- }
-  showRaw(){
-   this.editorRoot.empty();
-   this.rawEditor=el(this.editorRoot,"textarea","qb-note-raw");
-   this.rawEditor.value=this.blocks.join("\n");
-   this.rawEditor.setAttribute("aria-label","마크다운 원문 편집");
-   this.rawEditor.placeholder="노트를 작성하세요. # 제목, - 목록, **강조** 등의 마크다운을 사용할 수 있습니다.";
-   const preview=el(this.editorRoot,"div","qb-note-live-preview markdown-rendered");
-   preview.setAttribute("aria-label","실시간 마크다운 미리보기");
-   let version=0;
-   const update=async()=>{
-     const latest=++version,markdown=this.rawEditor.value;
-     if(!markdown.trim()){preview.empty();return;}
-     // Rendering is local and the text is rendered with Obsidian's safe MarkdownRenderer.
-     const temp=document.createElement("div");
-     try{await MarkdownRenderer.render(this.app,markdown,temp,this.plugin.paths.TASK_NOTES,this.renderer);
-       if(version===latest){preview.empty();while(temp.firstChild)preview.appendChild(temp.firstChild);
-         if(!preview.children?.length)preview.textContent=temp.textContent;}
-     }catch(error){if(version===latest)preview.textContent=markdown;}
-   };
-   this.rawEditor.addEventListener("input",update);
-   update();
+ async togglePreview(){
+  if(this.previewMode){
+   this.previewMode=false;
+   this.previewEl.classList.add("hidden");
+   this.rawEditor.classList.remove("hidden");
+   this.previewButton.textContent="미리보기";
+   this.previewButton.setAttribute("aria-pressed","false");
+   this.rawEditor.focus();
+   return;
   }
- showBlocks(focus=-1,cursor=0){
-  this.editorRoot.empty();
-  const list=el(this.editorRoot,"div","qb-note-blocks");
-  if(!this.blocks.length)this.blocks=[""];
-  this.blocks.forEach((_,index)=>this.makeBlock(list,index));
-  if(focus>=0){
-    const editors=list.querySelectorAll?.("textarea.qb-note-line")||[];
-    const input=editors[focus];
-    if(input){this.activateLine(input);input.focus();const n=Math.min(cursor,input.value.length);input.setSelectionRange?.(n,n);}
+  const markdown=this.rawEditor.value;
+  this.previewEl.empty();
+  if(!markdown.trim())el(this.previewEl,"p","qb-note-empty","작성된 노트가 없습니다.");
+  else {
+   try{await MarkdownRenderer.render(this.app,markdown,this.previewEl,this.plugin.paths.TASK_NOTES,this.renderer);}
+   catch(error){this.previewEl.textContent=markdown;console.error(error);}
   }
- }
- activateLine(input){
-  const wrapper=input.parentElement;
-  if(wrapper){wrapper.classList.add("editing");wrapper.querySelector(".qb-note-preview")?.classList.add("hidden");}
-  input.classList.remove("hidden");
-  input.style.height="auto";input.style.height=Math.max(36,input.scrollHeight||36)+"px";
- }
- async previewBlock(container,text){
-  container.empty();
-  if(!text.trim()){el(container,"span","qb-placeholder","내용을 입력하세요...");return;}
-  try{await MarkdownRenderer.render(this.app,text,container,this.plugin.paths.TASK_NOTES,this.renderer);}
-  catch(error){container.textContent=text;}
- }
- makeBlock(parent,index){
-  const wrapper=el(parent,"div","qb-note-line-wrap");
-  let detached=false;
-  const preview=el(wrapper,"div","qb-note-preview markdown-rendered");
-  const input=el(wrapper,"textarea","qb-note-line hidden");
-  input.value=this.blocks[index];input.rows=1;input.setAttribute("aria-label",`${index+1}번째 노트 줄`);
-  this.previewBlock(preview,this.blocks[index]);
-  if(!this.blocks[index].trim())this.activateLine(input);
-  preview.addEventListener("click",()=>{this.activateLine(input);input.focus();});
-  input.addEventListener("input",()=>{
-    this.blocks[index]=input.value;
-    input.style.height="auto";input.style.height=Math.max(36,input.scrollHeight||36)+"px";
-  });
-  input.addEventListener("keydown",event=>{
-    if(event.key==="Enter"&&!event.shiftKey){
-      event.preventDefault();const start=input.selectionStart,end=input.selectionEnd;
-      const current=input.value;
-      detached=true;
-      this.blocks.splice(index,1,current.slice(0,start),current.slice(end));
-      this.showBlocks(index+1);
-    }else if(event.key==="Backspace"&&input.selectionStart===0&&input.selectionEnd===0&&index>0){
-      event.preventDefault();const prev=this.blocks[index-1];
-      detached=true;
-      this.blocks.splice(index-1,2,prev+input.value);
-      this.showBlocks(index-1,prev.length);
-    }
-  });
-  input.addEventListener("blur",()=>{
-    if(detached)return;
-    this.blocks[index]=input.value;
-    this.previewBlock(preview,input.value);
-    if(input.value.trim()){input.classList.add("hidden");preview.classList.remove("hidden");wrapper.classList.remove("editing");}
-  });
+  this.previewMode=true;
+  this.rawEditor.classList.add("hidden");
+  this.previewEl.classList.remove("hidden");
+  this.previewButton.textContent="원문 편집";
+  this.previewButton.setAttribute("aria-pressed","true");
  }
  async save(){
   const data={title:this.titleInput.value,scheduled:this.startInput.value,due:this.endInput.value};
   validateTask(data);
-  const markdown=this.sourceText();
+  const markdown=this.rawEditor.value.replace(/\r\n/g,"\n");
   await this.plugin.saveTaskDetail(this.task,{...data,markdown});
-  this.originalNote=markdown;
  }
  async saveAndClose(){
   this.errorEl.textContent="";

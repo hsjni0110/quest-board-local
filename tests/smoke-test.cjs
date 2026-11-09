@@ -1,4 +1,4 @@
-/* Quest Board 2.6 API-level smoke test; run with node tests/smoke-test.cjs */
+/* Quest Board 2.6.1 API-level smoke test; run with node tests/smoke-test.cjs */
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const Module = require('node:module');
@@ -154,25 +154,33 @@ const findByClass=(root,cls)=>{const out=[];function rec(n){if(n.className?.spli
   pickers[0].events.change[0]();
   assert.equal(Modal.current.startInput.value,'2026-11-14','date picker updates visible date text');
   Modal.current.startInput.value='';
-  const rawModeButton=findByClass(Modal.current.contentEl,'qb-note-heading')[0].children.find(el=>el.tagName==='button');
-  assert(rawModeButton,'markdown source button should be available');
-  await rawModeButton.events.click[0]();
-  assert.equal(findByClass(Modal.current.contentEl,'qb-note-raw').length,1,'markdown source editor stays inside modal');
-  assert.equal(findByClass(Modal.current.contentEl,'qb-note-live-preview').length,1,'markdown preview stays inside modal');
-  await rawModeButton.events.click[0]();
-  const line=findByClass(Modal.current.contentEl,'qb-note-line')[0];
-  line.value='## 서식 제목';
-  line.events.input[0]();
-  line.selectionStart=line.value.length;line.selectionEnd=line.value.length;
-  line.events.keydown[0]({key:'Enter',shiftKey:false,preventDefault(){}});
-  assert.deepEqual(Modal.current.blocks,['## 서식 제목',''], 'Enter commits Markdown-formatted line and moves to a new block');
-  Modal.current.titleInput.value='방 정리 후 청소';
-  Modal.current.startInput.value='2026-11-10';
-  Modal.current.endInput.value='2026-11-12';
-  Modal.current.blocks=['## 오늘 기록','**정리 완료**','- 다음 단계'];
+  const modal=Modal.current;
+  const toggle=findByClass(modal.contentEl,'qb-note-heading')[0].children.find(el=>el.tagName==='button');
+  const editor=findByClass(modal.contentEl,'qb-note-raw')[0];
+  const preview=findByClass(modal.contentEl,'qb-note-live-preview')[0];
+  assert(toggle && editor && preview,'source editor and preview are mounted in one dialog');
+  assert.equal(toggle.textContent,'미리보기','source editing is the default');
+  assert(!editor.className.includes('hidden'),'source text is visible on open');
+  assert(preview.className.includes('hidden'),'rendered preview is hidden on open');
+  assert.equal(findByClass(modal.contentEl,'qb-note-line').length,0,'block-by-block editing is removed');
+  editor.value='## 오늘 기록\n**정리 완료**\n- 다음 단계';
+  await toggle.events.click[0]();
+  assert.equal(toggle.textContent,'원문 편집','preview toggle switches to source editing label');
+  assert(preview.textContent.includes('오늘 기록'),'Markdown preview renders current textarea content');
+  assert(editor.className.includes('hidden'),'source editor hides in preview');
+  assert(!preview.className.includes('hidden'),'preview appears in place of editor');
+  await toggle.events.click[0]();
+  assert.equal(toggle.textContent,'미리보기','toggle returns to source editing');
+  assert(!editor.className.includes('hidden'),'source editor returns without rerendering blocks');
+  assert(preview.className.includes('hidden'),'preview hides when editing');
+  assert.equal(editor.value,'## 오늘 기록\n**정리 완료**\n- 다음 단계','Markdown text is preserved across toggles');
+  modal.titleInput.value='방 정리 후 청소';
+  modal.startInput.value='2026-11-10';
+  modal.endInput.value='2026-11-12';
   await Modal.current.save();
   const savedNotes=[...files.entries()].filter(([name])=>name.startsWith('Management/04_TaskNotes/') && name.endsWith('.md'));
   assert.equal(savedNotes.length,1,'task-specific Markdown note created');
+  assert.equal(savedNotes[0][1],'## 오늘 기록\n**정리 완료**\n- 다음 단계','the unmodified Markdown source is saved');
   assert(savedNotes[0][1].includes('**정리 완료**'));
   assert(files.get(inboxPath).includes('방 정리 후 청소 ⏳ 2026-11-10 📅 2026-11-12'));
   const modified=(await plugin.getData()).tasks.find(t=>t.title==='방 정리 후 청소');
@@ -180,6 +188,12 @@ const findByClass=(root,cls)=>{const out=[];function rec(n){if(n.className?.spli
   await plugin.changeTask(modified,{title:modified.title,scheduled:modified.scheduled,due:modified.due,completed:true});
   assert(files.get(inboxPath).includes('✅ '),'task completed on button press gets completion date');
   assert(files.has(savedNotes[0][0]),'note survives completion');
+  plugin.taskDetailForm((await plugin.getData()).tasks.find(t=>t.title==='방 정리 후 청소'));
+  await Modal.current.opened;
+  assert.equal(Modal.current.previewMode,false,'reopened task returns to source mode');
+  assert.equal(Modal.current.rawEditor.value,'## 오늘 기록\n**정리 완료**\n- 다음 단계','saved Markdown loads into editor');
+  assert.equal(Modal.current.previewButton.textContent,'미리보기','reopened task has preview toggle');
+
 
   // Yesterday's completion must remain on the chart after local midnight.
   const NativeDate=global.Date;
@@ -196,5 +210,5 @@ const findByClass=(root,cls)=>{const out=[];function rec(n){if(n.className?.spli
   const goal=(await plugin.getData()).goals.find(x=>x.name==='새 목표');
   await plugin.editGoal(goal,{title:'새 목표',horizon:'장기',target:'',status:'달성'});
   assert(files.has(`${root}/02_Goals/Cleared/새 목표.md`));
-  console.log('PASS: graph rollover, row-click detail, Markdown notes, start/end dates, completion date, prior v2.4 workflows');
+  console.log('PASS: Markdown-source default, single preview toggle, persistence, graph rollover and prior workflows');
 })().catch(e=>{console.error(e);process.exitCode=1;});
