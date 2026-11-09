@@ -26,12 +26,29 @@ function uid() {return `qb-${Date.now().toString(36)}-${Math.random().toString(3
 function property(content,key) {const front=content.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);if(!front)return "";const line=front[1].split(/\r?\n/).find(x=>x.trimStart().startsWith(key+":"));if(!line)return "";return line.slice(line.indexOf(":")+1).trim().replace(/^(?:'([^']*)'|"([^"]*)")$/,(_,a,b)=>a??b).trim();}
 function parseTask(line,path,index) {const m=line.match(/^(\s*)([-*])\s+\[([ xX])\]\s+(.+?)\s*$/);if(!m)return null;let raw=m[4];const idM=raw.match(/\s+\^(qb-[\w-]+)\s*$/i);const id=idM?idM[1]:"";if(idM)raw=raw.slice(0,idM.index);const date=(mark)=>{const hit=raw.match(new RegExp(`${mark}\\s+(\\d{4}-\\d{2}-\\d{2})`));return hit?hit[1]:"";};return {id,path,index,rawLine:line,indent:m[1],bullet:m[2],completed:m[3].toLowerCase()==="x",scheduled:date("⏳"),due:date("📅"),doneDate:date("✅"),title:raw.replace(/\s*(?:⏳|📅|✅)\s+\d{4}-\d{2}-\d{2}/g," ").replace(/\s+/g," ").trim()};}
 function formatTask(t) {let line=`${t.indent??""}${t.bullet??"-"} [${t.completed?"x":" "}] ${titleClean(t.title)}`;if(t.scheduled)line+=` ⏳ ${t.scheduled}`;if(t.due)line+=` 📅 ${t.due}`;if(t.completed&&t.doneDate)line+=` ✅ ${t.doneDate}`;return line+` ^${t.id||uid()}`;}
-function validateTask(t) {if(!titleClean(t.title))throw Error("할 일 제목이 필요합니다.");if(!dateValid(t.scheduled)||!dateValid(t.due))throw Error("날짜가 올바르지 않습니다.");}
+function validateTask(t) {if(!titleClean(t.title))throw Error("할 일 제목이 필요합니다.");if(!dateValid(t.scheduled)||!dateValid(t.due))throw Error("날짜는 YYYY-MM-DD 형식으로 입력하세요.");}
 function taskIndex(lines,t) {if(t.id){const id=`^${t.id}`;const i=lines.findIndex(s=>s.trimEnd().endsWith(id));if(i>=0)return i;}if(lines[t.index]===t.rawLine)return t.index;return lines.findIndex(s=>s===t.rawLine);}
+
+/** Date text stays readable across Obsidian themes; a separate native control opens the OS calendar. */
+function dateControl(parent, value = "", caption = "날짜") {
+ const wrap=el(parent,"div","qb-date-control");
+ const input=el(wrap,"input","qb-input qb-date-text");
+ input.type="text";input.inputMode="numeric";input.placeholder="YYYY-MM-DD";
+ input.value=value||"";input.maxLength=10;input.autocomplete="off";
+ input.setAttribute("aria-label",caption);
+ const buttonIcon=el(wrap,"span","qb-date-icon");
+ buttonIcon.setAttribute("aria-hidden","true");
+ const picker=el(wrap,"input","qb-date-native");
+ picker.type="date";picker.value=value||"";
+ picker.setAttribute("aria-label",`${caption} 달력으로 선택`);
+ picker.addEventListener("change",()=>{input.value=picker.value;});
+ input.addEventListener("change",()=>{if(dateValid(input.value))picker.value=input.value;});
+ return input;
+}
 
 class EntryModal extends Modal {
  constructor(app,settings){super(app);this.settings=settings;}
- onOpen(){const root=this.contentEl;root.empty();root.addClass("qb-modal");el(root,"h2","qb-modal-title",this.settings.title);if(this.settings.hint)el(root,"p","qb-modal-hint",this.settings.hint);const form=el(root,"form","qb-form"),inputs={};for(const field of this.settings.fields){const label=el(form,"label","qb-field");el(label,"span","qb-field-title",field.label);let input;if(field.options){input=el(label,"select","qb-input");for(const opt of field.options){const option=el(input,"option","",opt.label);option.value=opt.value;}}else{input=el(label,"input","qb-input");input.type=field.type||"text";}input.value=field.value??"";input.required=!!field.required;if(field.placeholder)input.placeholder=field.placeholder;inputs[field.key]=input;}const err=el(form,"p","qb-error");err.setAttribute("role","alert");const actions=el(form,"div","qb-modal-actions");btn(actions,"취소","qb-btn qb-outline",()=>this.close());const save=el(actions,"button","qb-btn qb-primary",this.settings.submitText||"저장");save.type="submit";form.addEventListener("submit",async ev=>{ev.preventDefault();if(save.disabled)return;save.disabled=true;err.textContent="";const data={};for(const [key,input] of Object.entries(inputs))data[key]=input.value.trim();try{await this.settings.submit(data);this.close();}catch(e){err.textContent=e.message||String(e);console.error(e);}finally{save.disabled=false;}});}
+ onOpen(){const root=this.contentEl;root.empty();root.addClass("qb-modal");el(root,"h2","qb-modal-title",this.settings.title);if(this.settings.hint)el(root,"p","qb-modal-hint",this.settings.hint);const form=el(root,"form","qb-form"),inputs={};for(const field of this.settings.fields){const label=el(form,"label","qb-field");el(label,"span","qb-field-title",field.label);let input;if(field.options){input=el(label,"select","qb-input");for(const opt of field.options){const option=el(input,"option","",opt.label);option.value=opt.value;}}else if(field.type==="date"){input=dateControl(label,field.value??"",field.label);}else{input=el(label,"input","qb-input");input.type=field.type||"text";}input.value=field.value??"";input.required=!!field.required;if(field.placeholder)input.placeholder=field.placeholder;inputs[field.key]=input;}const err=el(form,"p","qb-error");err.setAttribute("role","alert");const actions=el(form,"div","qb-modal-actions");btn(actions,"취소","qb-btn qb-outline",()=>this.close());const save=el(actions,"button","qb-btn qb-primary",this.settings.submitText||"저장");save.type="submit";form.addEventListener("submit",async ev=>{ev.preventDefault();if(save.disabled)return;save.disabled=true;err.textContent="";const data={};for(const [key,input] of Object.entries(inputs))data[key]=input.value.trim();try{await this.settings.submit(data);this.close();}catch(e){err.textContent=e.message||String(e);console.error(e);}finally{save.disabled=false;}});}
  onClose(){this.contentEl.empty();}
 }
 
@@ -41,32 +58,24 @@ class TaskDetailModal extends Modal {
  async onOpen(){
   const root=this.contentEl;root.empty();root.addClass("qb-modal","qb-detail-modal");
   this.renderer=new Component();this.renderer.load();
-  el(root,"h2","qb-modal-title","할 일 상세");
-  el(root,"p","qb-modal-hint","내용을 누르면 편집하고, 줄을 바꾸면 마크다운 서식이 적용됩니다.");
-  const fields=el(root,"div","qb-detail-fields");
-  const makeInput=(caption,type,value,placeholder="")=>{
-    const label=el(fields,"label","qb-field");el(label,"span","qb-field-title",caption);
-    const input=el(label,"input","qb-input");input.type=type;input.value=value||"";input.placeholder=placeholder;return input;
-  };
-  this.titleInput=makeInput("할 일 제목","text",this.task.title,"할 일 제목을 입력하세요");
-  const dates=el(fields,"div","qb-detail-dates");
-  // 날짜 두 개는 행 자체를 열었을 때 즉시 확인할 수 있게 나란히 배치한다.
-  const dateInput=(caption,value)=>{const label=el(dates,"label","qb-field");el(label,"span","qb-field-title",caption);const input=el(label,"input","qb-input");input.type="date";input.value=value||"";return input;};
-  this.startInput=dateInput("시작 날짜",this.task.scheduled);
-  this.endInput=dateInput("종료 날짜",this.task.due);
-  const noteHeading=el(root,"div","qb-note-heading");
-  el(noteHeading,"strong","","노트");
-  const sourceButton=btn(noteHeading,"원문 편집","qb-btn qb-quiet",()=>this.toggleRawMode(sourceButton));
+   // The title itself is the primary editable heading; no duplicate page title or helper paragraph.
+   const heading=el(root,"div","qb-detail-heading");
+   this.titleInput=el(heading,"input","qb-detail-title-input");
+   this.titleInput.type="text";
+   this.titleInput.value=this.task.title;
+   this.titleInput.placeholder="할 일 제목";
+   this.titleInput.setAttribute("aria-label","할 일 제목");
+   const dates=el(root,"div","qb-detail-dates");
+   const dateInput=(caption,value)=>{const label=el(dates,"label","qb-field");el(label,"span","qb-field-title",caption);return dateControl(label,value,caption);};
+   this.startInput=dateInput("시작",this.task.scheduled);
+   this.endInput=dateInput("종료",this.task.due);
+   const noteHeading=el(root,"div","qb-note-heading");
+   el(noteHeading,"strong","","노트");
+   const sourceButton=btn(noteHeading,"마크다운 원문","qb-btn qb-quiet",()=>this.toggleRawMode(sourceButton));
   this.editorRoot=el(root,"div","qb-note-editor");
   this.errorEl=el(root,"p","qb-error");this.errorEl.setAttribute("role","alert");
   const actions=el(root,"div","qb-modal-actions");
   btn(actions,"취소","qb-btn qb-outline",()=>this.close());
-  btn(actions,"노트에서 열기","qb-btn qb-outline",async()=>{
-    await this.save();
-    const path=this.plugin.notePath(this.currentId);
-    await this.app.workspace.openLinkText(path,"",false);
-    this.close();
-  });
   this.saveButton=btn(actions,"저장","qb-btn qb-primary",()=>this.saveAndClose());
   try{
     const {id,content}=await this.plugin.loadTaskNote(this.task);
@@ -80,18 +89,33 @@ class TaskDetailModal extends Modal {
  toggleRawMode(button){
   const text=this.sourceText();this.rawMode=!this.rawMode;
   this.blocks=text.split("\n");
-  button.textContent=this.rawMode?"줄별 편집":"원문 편집";
+  button.textContent=this.rawMode?"블록 편집":"마크다운 원문";
   if(this.rawMode)this.showRaw();else this.showBlocks();
  }
- showRaw(){
-  this.editorRoot.empty();this.rawEditor=el(this.editorRoot,"textarea","qb-note-raw");
-  this.rawEditor.value=this.blocks.join("\n");
-  this.rawEditor.setAttribute("aria-label","마크다운 원문 편집");
-  this.rawEditor.placeholder="마크다운으로 자유롭게 작성하세요. (예: ## 제목, - 목록, **굵게**)";
- }
+  showRaw(){
+   this.editorRoot.empty();
+   this.rawEditor=el(this.editorRoot,"textarea","qb-note-raw");
+   this.rawEditor.value=this.blocks.join("\n");
+   this.rawEditor.setAttribute("aria-label","마크다운 원문 편집");
+   this.rawEditor.placeholder="노트를 작성하세요. # 제목, - 목록, **강조** 등의 마크다운을 사용할 수 있습니다.";
+   const preview=el(this.editorRoot,"div","qb-note-live-preview markdown-rendered");
+   preview.setAttribute("aria-label","실시간 마크다운 미리보기");
+   let version=0;
+   const update=async()=>{
+     const latest=++version,markdown=this.rawEditor.value;
+     if(!markdown.trim()){preview.empty();return;}
+     // Rendering is local and the text is rendered with Obsidian's safe MarkdownRenderer.
+     const temp=document.createElement("div");
+     try{await MarkdownRenderer.render(this.app,markdown,temp,this.plugin.paths.TASK_NOTES,this.renderer);
+       if(version===latest){preview.empty();while(temp.firstChild)preview.appendChild(temp.firstChild);
+         if(!preview.children?.length)preview.textContent=temp.textContent;}
+     }catch(error){if(version===latest)preview.textContent=markdown;}
+   };
+   this.rawEditor.addEventListener("input",update);
+   update();
+  }
  showBlocks(focus=-1,cursor=0){
   this.editorRoot.empty();
-  el(this.editorRoot,"p","qb-note-guide","클릭하여 작성 · Enter: 다음 줄과 서식 적용 · Shift+Enter: 줄바꿈");
   const list=el(this.editorRoot,"div","qb-note-blocks");
   if(!this.blocks.length)this.blocks=[""];
   this.blocks.forEach((_,index)=>this.makeBlock(list,index));
@@ -600,7 +624,13 @@ class QuestPanel extends ItemView {
       this.history(host, doneTasks);
     }, "qb-tabs qb-chart-tabs");
 
-    if(!total){el(host,"p","qb-chart-empty","선택한 기간에 완료 기록이 없습니다. 할 일을 완료하면 여기에 표시됩니다.");}
+    if(!total){el(host,"p","qb-chart-empty","완료한 할 일이 쌓이면 여기에 기록됩니다.");}
+    else {
+      const peak = Math.max(...values);
+      const insight=el(host,"div","qb-chart-insight");
+      el(insight,"span","qb-chart-achievement",`이번 기간 ${total}개 완료`);
+      el(insight,"span","qb-chart-peak",`최고 기록 하루 ${peak}개`);
+    }
     const scroll = el(host, "div", "qb-chart-scroll");
     const plot = el(scroll, "div", "qb-plot");
     plot.style.setProperty("--qb-days", this.days);
@@ -612,10 +642,19 @@ class QuestPanel extends ItemView {
       column.type = "button";
       column.title = `${date} · ${count}개 완료`;
       column.setAttribute("aria-label", column.title);
-      const zone = el(column, "span", "qb-bar-zone");
+    const zone = el(column, "span", "qb-bar-zone");
       const bar = el(zone, "span", "qb-bar");
-      bar.style.height = `${count ? Math.max(5, count / max * 100) : 1}%`;
-      if (count) bar.dataset.filled = "true";
+      // Pixel height is intentional: percentage heights inside nested flex boxes
+      // were sometimes measured against an indefinite height and collapsed to 0.
+      const barPixels = count ? Math.max(14, Math.round(count / max * 116)) : 3;
+      bar.style.height = `${barPixels}px`;
+      zone.style.setProperty("--qb-bar-height",`${barPixels}px`);
+      if (count) {
+        bar.dataset.filled = "true";
+        el(zone,"span","qb-bar-value",String(count));
+      }
+      if(date===today())column.dataset.today="true";
+      if(count===max && count>0)column.dataset.peak="true";
       el(column, "span", "qb-chart-tick", this.days === 7 || i % (this.days === 30 ? 5 : 15) === 0 || i === this.days - 1 ? date.slice(5) : "");
       column.addEventListener("click", () => {
         this.selectedDay = this.selectedDay === date ? null : date;

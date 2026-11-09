@@ -1,4 +1,4 @@
-/* 목표와 할 일 2.4
+/* 목표와 할 일 2.6
    - 독립 Obsidian 뷰에만 적용
    - 상단: 작은 일별 완료 그래프
    - 본문: 탭 전환 / 목표 목록 점진적 펼침
@@ -119,76 +119,94 @@
 .quest-board .qb-tab:hover { color: var(--qb-text); background: var(--qb-surface-2); }
 .quest-board .qb-tab.active { color: #fff; background: #33445f; }
 
-/* 상단의 얇은 완료 기록 그래프: 핵심 차트만 노출 */
+/* 완료 기록: 정보 밀도를 유지하면서 성취를 확실히 보여주는 막대 */
 .quest-board .qb-chart {
   background: var(--qb-surface);
   border: 1px solid var(--qb-border);
-  border-radius: 13px;
-  padding: 17px 20px 12px;
-  margin-bottom: 26px;
+  border-radius: 14px;
+  padding: 19px 22px 14px;
+  margin-bottom: 25px;
 }
 .quest-board .qb-chart-header {
   display: flex; justify-content: space-between; align-items: center;
-  gap: 10px 16px; flex-wrap: wrap;
-  margin-bottom: 12px;
+  flex-wrap: wrap; gap: 12px 18px;
+  margin-bottom: 10px;
 }
 .quest-board .qb-chart-title-group {
-  display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 13px;
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 7px 14px;
 }
 .quest-board .qb-chart-title {
-  margin: 0; padding: 0; border: 0;
-  color: var(--qb-text); font-size: 15px; font-weight: 750;
+  margin: 0; padding: 0; border: 0; color: var(--qb-text);
+  font-size: 16px; font-weight: 750;
 }
 .quest-board .qb-chart-subtitle { color: var(--qb-muted); font-size: 12px; }
 .quest-board .qb-chart-ranges { display: flex; align-items: center; }
 .quest-board .qb-chart-tabs { border-color: transparent; background: transparent; padding: 0; }
-.quest-board .qb-chart-tabs .qb-tab {
-  padding: 4px 9px; min-height: 29px; font-size: 12px;
+.quest-board .qb-chart-tabs .qb-tab { padding: 5px 11px; min-height: 30px; font-size: 12px; }
+.quest-board .qb-chart-insight {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px;
+  margin: 2px 0 6px; font-size: 12px;
 }
+.quest-board .qb-chart-achievement { font-size: 13px; font-weight: 750; color: var(--qb-green); }
+.quest-board .qb-chart-peak { font-size: 11px; color: var(--qb-muted); }
 .quest-board .qb-chart-scroll { width: 100%; overflow-x: auto; scrollbar-width: thin; }
 .quest-board .qb-plot {
   display: grid;
-  grid-template-columns: repeat(var(--qb-days), minmax(7px, 1fr));
-  gap: 4px; min-width: max(100%, calc(var(--qb-days) * 12px));
-  height: 122px;
+  grid-template-columns: repeat(var(--qb-days), minmax(13px, 1fr));
+  gap: 5px; min-width: max(100%, calc(var(--qb-days) * 27px));
+  height: 183px;
   border-bottom: 1px solid var(--qb-border);
-  background: repeating-linear-gradient(
-    to top, transparent 0, transparent 29px, rgba(117,138,168,.11) 30px
-  );
+  background: repeating-linear-gradient(to top, transparent 0, transparent 38px, rgba(136,157,187,.10) 39px);
 }
 .quest-board .qb-column {
   display: flex; flex-direction: column; justify-content: flex-end;
-  min-width: 0; height: 100%; padding: 0;
-  border: 0; background: transparent; color: var(--qb-muted);
+  width: 100%; min-width: 0; height: 100%; padding: 0;
+  border: 0; border-radius: 5px 5px 0 0;
+  background: transparent !important; color: var(--qb-muted);
+  appearance: none; -webkit-appearance: none;
 }
 .quest-board .qb-bar-zone {
-  display: flex; align-items: flex-end; justify-content: center;
-  height: 98px;
+  position: relative; display: flex; align-items: flex-end; justify-content: center;
+  width: 100%; height: 155px; min-height: 155px;
 }
 .quest-board .qb-bar {
-  display: block; width: min(100%, 19px); min-height: 2px;
-  border-radius: 4px 4px 0 0;
+  display: block; flex: none;
+  width: min(80%, 32px); min-height: 3px;
+  border-radius: 6px 6px 2px 2px;
   background: #39485e;
-  transition: height .13s ease, background .13s ease;
+  transition: height .28s cubic-bezier(.18,.76,.24,1), filter .18s ease, transform .18s ease;
+  box-shadow: none;
 }
 .quest-board .qb-bar[data-filled="true"] {
-  background: linear-gradient(180deg,#b0aaff,#789ccf);
+  background: linear-gradient(180deg, #a4f2cf 0%, #83d6c4 38%, #7778d9 100%);
+  box-shadow: 0 0 12px rgba(118,206,186,.20), inset 0 1px 0 rgba(255,255,255,.40);
 }
-.quest-board .qb-column:hover .qb-bar,
-.quest-board .qb-column.selected .qb-bar { background: var(--qb-green); }
+.quest-board .qb-column[data-peak="true"] .qb-bar[data-filled="true"] {
+  background: linear-gradient(180deg, #caf7df 0%, #8de0bc 48%, #9499f4 100%);
+  box-shadow: 0 0 16px rgba(129,227,184,.32);
+}
+.quest-board .qb-column[data-today="true"] .qb-chart-tick { color: var(--qb-green); font-weight: 800; }
+.quest-board .qb-column:hover .qb-bar[data-filled="true"],
+.quest-board .qb-column.selected .qb-bar[data-filled="true"] {
+  filter: brightness(1.2); transform: scaleX(1.09);
+}
+.quest-board .qb-column.selected .qb-bar-zone { background: rgba(136,211,183,.06); border-radius: 5px; }
+.quest-board .qb-bar-value {
+  position: absolute; bottom: calc(var(--qb-bar-height) + 6px);
+  left: 50%; transform: translateX(-50%);
+  color: #d7f9e9; font-size: 12px; font-weight: 800;
+  font-variant-numeric: tabular-nums; pointer-events: none;
+}
 .quest-board .qb-chart-tick {
-  height: 24px; display: block; padding-top: 4px;
+  height: 27px; display: block; padding-top: 6px;
   color: var(--qb-subtle); text-align: center;
   font-size: 10px; white-space: nowrap;
 }
 .quest-board .qb-chart-detail {
   display: flex; align-items: center; flex-wrap: wrap; gap: 7px;
-  border-top: 1px solid var(--qb-border);
-  padding-top: 12px; margin-top: 12px;
+  border-top: 1px solid var(--qb-border); padding-top: 12px; margin-top: 12px;
 }
-.quest-board .qb-chart-detail-head {
-  color: var(--qb-text); font-size: 12px; margin-right: 8px;
-}
+.quest-board .qb-chart-detail-head { color: var(--qb-text); font-size: 12px; margin-right: 8px; }
 .quest-board .qb-history-link {
   max-width: 240px; min-height: 28px; padding: 4px 9px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -422,9 +440,12 @@
   .quest-board *, .qb-modal * { transition-duration: 0s !important; }
 }
 
-/* 2.5: 행 전체에서 상세 열기 / 편집 노트 */
-.quest-board .qb-task-row { cursor: pointer; border-radius: 7px; padding-left: 8px; padding-right: 8px; }
-.quest-board .qb-task-row:hover, .quest-board .qb-task-row:focus-visible {
+/* 할 일 행은 클릭, 체크박스와 삭제 버튼은 별도의 동작 */
+.quest-board .qb-task-row {
+  cursor: pointer; border-radius: 7px; padding-left: 8px; padding-right: 8px;
+}
+.quest-board .qb-task-row:hover,
+.quest-board .qb-task-row:focus-visible {
   background: color-mix(in srgb, var(--qb-accent) 8%, transparent);
   outline-offset: -2px;
 }
@@ -432,33 +453,100 @@
 .quest-board .qb-task-row .qb-origin { pointer-events: auto; }
 .quest-board .qb-chart-empty { color: var(--qb-muted); font-size: 12px; margin: 0 0 10px; }
 
-/* 모달은 넓어도 중앙에 정돈하여 표시. 테마의 기본 textarea 스타일에 영향받지 않는다. */
-.modal:has(.qb-detail-modal) { width: min(780px, calc(100vw - 32px)); max-width: 780px; }
-.qb-detail-modal .qb-detail-fields { display: flex; flex-direction: column; gap: 14px; }
-.qb-detail-modal .qb-detail-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.qb-detail-modal .qb-note-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 18px 0 8px; }
+/* 한 화면에서 제목·기간·마크다운 노트를 편집하는 대화상자 */
+.modal:has(.qb-detail-modal) { width: min(900px, calc(100vw - 36px)); max-width: 900px; }
+.qb-detail-modal .qb-detail-heading { margin: 1px 0 13px; }
+.qb-detail-modal .qb-detail-title-input {
+  display: block; width: 100%; min-height: 53px; height: auto;
+  margin: 0; padding: 7px 3px 9px; background: transparent;
+  border: 0; border-bottom: 1px solid var(--background-modifier-border);
+  border-radius: 0; box-shadow: none; outline: none;
+  color: var(--text-normal); font-family: var(--font-text);
+  font-weight: 760; font-size: clamp(23px, 3vw, 30px); line-height: 1.3;
+}
+.qb-detail-modal .qb-detail-title-input:focus {
+  border-bottom-color: var(--interactive-accent); box-shadow: none;
+}
+.qb-detail-modal .qb-detail-dates {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px; margin: 0 0 19px;
+}
+.qb-detail-modal .qb-field { gap: 5px; }
+.qb-detail-modal .qb-field-title { color: var(--text-muted); font-size: 12px; }
+.qb-modal .qb-date-control {
+  position: relative; display: flex; align-items: center; width: 100%;
+  height: 40px; min-height: 40px; background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border); border-radius: 9px;
+}
+.qb-modal .qb-date-control:focus-within { border-color: var(--interactive-accent); }
+.qb-modal .qb-date-control .qb-date-text {
+  width: 100%; height: 38px !important; min-height: 38px !important;
+  padding: 0 48px 0 12px !important; border: none !important;
+  outline: none !important; box-shadow: none !important;
+  background: transparent !important; color: var(--text-normal) !important;
+  font: 500 13px/1.4 var(--font-text) !important;
+  font-variant-numeric: tabular-nums; letter-spacing: 0;
+}
+.qb-modal .qb-date-icon {
+  position: absolute; right: 12px; top: 10px; height: 18px; width: 18px;
+  background: currentColor;
+  color: var(--text-muted); opacity: .86;
+  pointer-events: none;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M16 3v4M8 3v4M3 10h18'/%3E%3C/svg%3E") center / contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M16 3v4M8 3v4M3 10h18'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.qb-modal .qb-date-native {
+  position: absolute; top: 0; right: 0; z-index: 2;
+  width: 43px; height: 38px; min-height: 38px; padding: 0; margin: 0;
+  opacity: 0; cursor: pointer; color: transparent;
+}
+.qb-detail-modal .qb-note-heading {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; margin: 7px 0 8px;
+}
 .qb-detail-modal .qb-note-heading strong { font-size: 15px; color: var(--text-normal); }
-.qb-detail-modal .qb-note-editor { min-height: 140px; max-height: min(45vh, 430px); overflow-y: auto; border: 1px solid var(--background-modifier-border); border-radius: 10px; background: var(--background-primary); }
-.qb-detail-modal .qb-note-guide { padding: 12px 15px 8px; color: var(--text-muted); font-size: 12px; margin: 0; }
-.qb-detail-modal .qb-note-blocks { padding: 8px 12px 16px; }
-.qb-detail-modal .qb-note-line-wrap { position: relative; min-height: 30px; }
+.qb-detail-modal .qb-note-heading .qb-btn { min-height: 32px; font-size: 12px; }
+.qb-detail-modal .qb-note-editor {
+  min-height: 340px; max-height: min(58vh, 590px); overflow-y: auto;
+  border: 1px solid var(--background-modifier-border); border-radius: 10px;
+  background: var(--background-primary);
+}
+.qb-detail-modal .qb-note-blocks { min-height: 330px; padding: 16px 17px; }
+.qb-detail-modal .qb-note-line-wrap { position: relative; min-height: 36px; }
 .qb-detail-modal .qb-note-line-wrap.editing { background: var(--background-secondary); border-radius: 6px; }
-.qb-detail-modal .qb-note-preview { padding: 5px 8px; min-height: 30px; cursor: text; line-height: 1.55; overflow-wrap: anywhere; }
+.qb-detail-modal .qb-note-preview {
+  padding: 5px 8px; min-height: 36px; cursor: text;
+  line-height: 1.65; overflow-wrap: anywhere;
+}
 .qb-detail-modal .qb-note-preview > :first-child { margin-top: 0; }
 .qb-detail-modal .qb-note-preview > :last-child { margin-bottom: 0; }
 .qb-detail-modal .qb-note-preview .qb-placeholder { color: var(--text-faint); }
 .qb-detail-modal .qb-note-line, .qb-detail-modal .qb-note-raw {
-  display: block; box-sizing: border-box; width: 100%; resize: vertical;
+  display: block; box-sizing: border-box; width: 100%; resize: none;
   background: var(--background-secondary); color: var(--text-normal);
   border: 1px solid var(--interactive-accent); border-radius: 7px;
-  font-family: var(--font-text); font-size: 14px; line-height: 1.6;
-  padding: 6px 8px; outline: none;
+  font-family: var(--font-text); font-size: 14px; line-height: 1.7;
+  padding: 7px 10px; outline: none;
 }
-.qb-detail-modal .qb-note-raw { min-height: 220px; resize: vertical; }
-.qb-detail-modal .qb-note-line { min-height: 36px; resize: none; }
+.qb-detail-modal .qb-note-line { min-height: 37px; }
+.qb-detail-modal .qb-note-raw {
+  min-height: 220px; height: 245px; resize: vertical;
+  border: 0; border-bottom: 1px solid var(--background-modifier-border);
+  border-radius: 0; background: transparent; padding: 15px 17px;
+}
+.qb-detail-modal .qb-note-live-preview {
+  border-top: 1px solid var(--background-modifier-border);
+  padding: 12px 17px; min-height: 105px;
+  color: var(--text-normal); line-height: 1.6;
+}
 .qb-detail-modal .hidden { display: none !important; }
 .qb-detail-modal .qb-error:empty { display: none; }
 @media (max-width: 550px) {
-  .qb-detail-modal .qb-detail-dates { grid-template-columns: 1fr; }
-  .qb-detail-modal .qb-note-editor { max-height: 38vh; }
+  .qb-detail-modal .qb-detail-dates { grid-template-columns: 1fr; gap: 8px; }
+  .qb-detail-modal .qb-note-editor { max-height: 50vh; min-height: 265px; }
+  .qb-detail-modal .qb-note-blocks { min-height: 250px; }
+  .qb-detail-modal .qb-detail-title-input { font-size: 23px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quest-board .qb-bar { transition-duration: 0s !important; }
 }

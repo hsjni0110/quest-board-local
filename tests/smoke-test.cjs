@@ -1,4 +1,4 @@
-/* Quest Board 2.5 API-level smoke test; run with node tests/smoke-test.cjs */
+/* Quest Board 2.6 API-level smoke test; run with node tests/smoke-test.cjs */
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const Module = require('node:module');
@@ -120,6 +120,12 @@ const findByClass=(root,cls)=>{const out=[];function rec(n){if(n.className?.spli
   assert(panel.contentEl.textContent.includes('(1 / 1)'),'header completion counts update');
   assert.equal(findByClass(panel.contentEl,'qb-task-row').length,1,'completed excluded from open tasks');
   assert(panel.contentEl.textContent.includes('최근 30일 동안 1개 완료'),'history graph counts completion');
+  const completedBars=findByClass(panel.contentEl,'qb-bar').filter(bar=>bar.dataset.filled==='true');
+  assert.equal(completedBars.length,1,'completion is rendered as a visible bar');
+  assert.match(completedBars[0].style.height,/^\d+px$/,'bar uses deterministic pixel height');
+  assert(Number.parseInt(completedBars[0].style.height,10)>=14,'completed bar remains visible even when values are small');
+  assert.equal(findByClass(panel.contentEl,'qb-bar-value').length,1,'completed count appears on the bar');
+  assert(panel.contentEl.textContent.includes('이번 기간 1개 완료'),'achievement summary is present');
   const plot=findByClass(panel.contentEl,'qb-column');
   await plot.at(-1).events.click[0]();
   assert(panel.contentEl.textContent.includes('달리기 연습'),'chart detail on click');
@@ -138,6 +144,22 @@ const findByClass=(root,cls)=>{const out=[];function rec(n){if(n.className?.spli
   assert.equal(Modal.current.titleInput.value,'방 정리');
   assert.equal(Modal.current.startInput.value,'');
   assert.equal(Modal.current.endInput.value,'');
+  assert.equal(findByClass(Modal.current.contentEl,'qb-modal-title').length,0,'duplicate detail title is removed');
+  assert.equal(findByClass(Modal.current.contentEl,'qb-modal-hint').length,0,'instruction paragraph is removed');
+  assert.equal(findByClass(Modal.current.contentEl,'qb-detail-title-input').length,1,'editable task title is used as heading');
+  assert.equal(findByClass(Modal.current.contentEl,'qb-date-control').length,2,'dates use compact text-and-calendar controls');
+  assert(!Modal.current.contentEl.textContent.includes('노트에서 열기'),'no external note-open action');
+  const pickers=findByClass(Modal.current.contentEl,'qb-date-native');
+  pickers[0].value='2026-11-14';
+  pickers[0].events.change[0]();
+  assert.equal(Modal.current.startInput.value,'2026-11-14','date picker updates visible date text');
+  Modal.current.startInput.value='';
+  const rawModeButton=findByClass(Modal.current.contentEl,'qb-note-heading')[0].children.find(el=>el.tagName==='button');
+  assert(rawModeButton,'markdown source button should be available');
+  await rawModeButton.events.click[0]();
+  assert.equal(findByClass(Modal.current.contentEl,'qb-note-raw').length,1,'markdown source editor stays inside modal');
+  assert.equal(findByClass(Modal.current.contentEl,'qb-note-live-preview').length,1,'markdown preview stays inside modal');
+  await rawModeButton.events.click[0]();
   const line=findByClass(Modal.current.contentEl,'qb-note-line')[0];
   line.value='## 서식 제목';
   line.events.input[0]();
